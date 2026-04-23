@@ -1,0 +1,47 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    networks:
+      - app-net
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - CADDY_ADMIN_URL=http://proxy:2019
+    volumes:
+      # Mount Docker socket so backend can spawn user app containers
+      # See docs/01-docker.md for why this works
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-net
+    depends_on:
+      - proxy
+
+  proxy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2019:2019"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  caddy-data:
+  caddy-config:
