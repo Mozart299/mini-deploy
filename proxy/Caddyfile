@@ -2,7 +2,9 @@
     # Use local CA for HTTPS in development — no Let's Encrypt needed
     local_certs
     # Admin API listens on all interfaces so the backend container can reach it
-    admin 0.0.0.0:2019
+    admin 0.0.0.0:2019 {
+        origins localhost:2019
+    }
 }
 
 # Catch-all: forward everything to the frontend dev server

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, rmSync } from 'fs'
 import path from 'path'
 import Docker from 'dockerode'
 import { Deployment } from './types'
-import { appendLog, transition } from './store'
+import { appendLog, transition, getDeployment } from './store'
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 
@@ -60,12 +60,14 @@ export async function runPipeline(deployment: Deployment): Promise<void> {
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    // Don't overwrite a cancelled (stopped) deployment with failed
-    const { getDeployment } = await import('./store')
-    const current = getDeployment(id)
-    if (current.status !== 'stopped') {
-      log(`Pipeline failed: ${message}`)
-      transition(id, 'failed', { error: message })
+    try {
+      const current = getDeployment(id)
+      if (current.status !== 'stopped') {
+        log(`Pipeline failed: ${message}`)
+        transition(id, 'failed', { error: message })
+      }
+    } catch {
+      // Deployment was already removed (e.g. store cleared on restart)
     }
   } finally {
     activeProcesses.delete(id)
@@ -139,13 +141,13 @@ async function registerWithCaddy(subdomain: string, port: number): Promise<void>
     match: [{ host: [`${subdomain}.localhost`] }],
     handle: [{
       handler: 'reverse_proxy',
-      upstreams: [{ dial: `localhost:${port}` }]
+      upstreams: [{ dial: `host.docker.internal:${port}` }]
     }]
   }
 
   const res = await fetch(`${caddyAdminUrl}/config/apps/http/servers/srv0/routes`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost:2019' },
     body: JSON.stringify(route)
   })
 
@@ -158,7 +160,7 @@ export async function stopDeploymentContainer(deployment: Deployment): Promise<v
   // Remove Caddy route
   const caddyAdminUrl = process.env.CADDY_ADMIN_URL ?? 'http://proxy:2019'
   const subdomain = `app-${deployment.id}`
-  await fetch(`${caddyAdminUrl}/id/route-${subdomain}`, { method: 'DELETE' })
+  await fetch(`${caddyAdminUrl}/id/route-${subdomain}`, { method: 'DELETE', headers: { 'Origin': 'http://localhost:2019' } })
 
   // Stop and remove the container by image name
   const containers = await docker.listContainers()
