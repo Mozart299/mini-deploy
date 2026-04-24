@@ -3,8 +3,12 @@ FROM node:20-alpine
 # Install git (needed to clone repos) and railpack
 RUN apk add --no-cache git curl bash
 
-# Install railpack
-RUN curl -fsSL https://railpack.io/install.sh | bash
+# Install railpack from GitHub releases (musl build for Alpine)
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
+    curl -fsSL "https://github.com/railwayapp/railpack/releases/download/v0.23.0/railpack-v0.23.0-${ARCH}-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin railpack && \
+    chmod +x /usr/local/bin/railpack
 
 WORKDIR /app
 
