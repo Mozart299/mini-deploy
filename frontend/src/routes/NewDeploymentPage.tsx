@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { createDeployment } from '../api/deployments'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-// useMutation handles the POST request.
-// On success: invalidate the deployments list cache + navigate to the detail page.
-// See docs/07-tanstack-query.md for mutations.
 export function NewDeploymentPage() {
   const [gitUrl, setGitUrl] = useState('')
   const navigate = useNavigate()
@@ -14,60 +15,53 @@ export function NewDeploymentPage() {
   const deploy = useMutation({
     mutationFn: () => createDeployment(gitUrl),
     onSuccess: (deployment) => {
-      // Tell TanStack Query the deployments list is stale — it will refetch
       queryClient.invalidateQueries({ queryKey: ['deployments'] })
-      // Navigate to the detail page for the new deployment
       navigate({ to: '/deployments/$id', params: { id: deployment.id } })
     },
   })
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 24 }}>New Deployment</h1>
-
-      <label style={{ display: 'block', fontSize: '0.875rem', color: '#8b949e', marginBottom: 8 }}>
-        Git URL
-      </label>
-      <input
-        type="text"
-        placeholder="https://github.com/user/repo"
-        value={gitUrl}
-        onChange={e => setGitUrl(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          background: '#161b22',
-          border: '1px solid #30363d',
-          borderRadius: 6,
-          color: '#e6edf3',
-          fontSize: '0.9rem',
-          boxSizing: 'border-box',
-          marginBottom: 16,
-        }}
-      />
-
-      {deploy.isError && (
-        <p style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: 12 }}>
-          {deploy.error instanceof Error ? deploy.error.message : 'Something went wrong'}
+    <div className="max-w-lg">
+      <div className="mb-6">
+        <h1 className="text-lg font-semibold">New Deployment</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Paste a public Git URL. We'll build and deploy it automatically.
         </p>
-      )}
+      </div>
 
-      <button
-        onClick={() => deploy.mutate()}
-        disabled={!gitUrl || deploy.isPending}
-        style={{
-          background: deploy.isPending ? '#238636aa' : '#238636',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          padding: '8px 20px',
-          fontSize: '0.9rem',
-          cursor: deploy.isPending ? 'not-allowed' : 'pointer',
-          fontWeight: 500,
-        }}
-      >
-        {deploy.isPending ? 'Deploying...' : 'Deploy'}
-      </button>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Repository</CardTitle>
+          <CardDescription>Must be a public GitHub, GitLab, or Bitbucket URL</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="git-url">Git URL</Label>
+            <Input
+              id="git-url"
+              type="text"
+              placeholder="https://github.com/user/repo"
+              value={gitUrl}
+              onChange={e => setGitUrl(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && gitUrl && !deploy.isPending && deploy.mutate()}
+            />
+          </div>
+
+          {deploy.isError && (
+            <p className="text-sm text-destructive">
+              {deploy.error instanceof Error ? deploy.error.message : 'Something went wrong'}
+            </p>
+          )}
+
+          <Button
+            onClick={() => deploy.mutate()}
+            disabled={!gitUrl || deploy.isPending}
+            className="w-full"
+          >
+            {deploy.isPending ? 'Deploying...' : 'Deploy'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

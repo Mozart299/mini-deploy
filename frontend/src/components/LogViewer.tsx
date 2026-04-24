@@ -4,37 +4,24 @@ interface LogViewerProps {
   logs: string[]
 }
 
-// Renders a terminal-style log output that auto-scrolls to the bottom
-// as new lines arrive from the SSE stream
 export function LogViewer({ logs }: LogViewerProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll whenever logs array grows
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs.length])
 
   return (
-    <div style={{
-      background: '#0d1117',
-      color: '#e6edf3',
-      fontFamily: 'monospace',
-      fontSize: '0.8rem',
-      padding: '16px',
-      borderRadius: '8px',
-      height: '360px',
-      overflowY: 'auto',
-      lineHeight: 1.6,
-    }}>
+    <div className="rounded-lg border border-border bg-black/60 font-mono text-xs leading-relaxed h-80 overflow-y-auto p-4">
       {logs.length === 0 ? (
-        <span style={{ color: '#6e7681' }}>Waiting for logs...</span>
+        <span className="text-muted-foreground">Waiting for logs...</span>
       ) : (
         logs.map((line, i) => (
-          <div key={i} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            <span style={{ color: '#6e7681', userSelect: 'none', marginRight: 8 }}>
-              {String(i + 1).padStart(3, ' ')}
+          <div key={i} className="flex gap-3 whitespace-pre-wrap break-all">
+            <span className="select-none text-muted-foreground/50 w-6 shrink-0 text-right">
+              {i + 1}
             </span>
-            {line}
+            <span>{line}</span>
           </div>
         ))
       )}

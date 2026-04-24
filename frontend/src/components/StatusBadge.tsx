@@ -1,39 +1,32 @@
+import { Badge } from '@/components/ui/badge'
 import type { DeploymentStatus } from '../types'
 
-// Maps each deployment status to a display label and color class
-const STATUS_CONFIG: Record<DeploymentStatus, { label: string; color: string; pulse: boolean }> = {
-  pending:   { label: 'Queued',      color: '#6b7280', pulse: false },
-  building:  { label: 'Building...', color: '#f59e0b', pulse: true  },
-  deploying: { label: 'Deploying...', color: '#3b82f6', pulse: true  },
-  running:   { label: 'Live',        color: '#22c55e', pulse: false },
-  failed:    { label: 'Failed',      color: '#ef4444', pulse: false },
-  stopped:   { label: 'Stopped',     color: '#6b7280', pulse: false },
+const STATUS_CONFIG: Record<DeploymentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; pulse: boolean }> = {
+  pending:   { label: 'Queued',       variant: 'secondary',    pulse: false },
+  building:  { label: 'Building',     variant: 'outline',      pulse: true  },
+  deploying: { label: 'Deploying',    variant: 'outline',      pulse: true  },
+  running:   { label: 'Live',         variant: 'default',      pulse: false },
+  failed:    { label: 'Failed',       variant: 'destructive',  pulse: false },
+  stopped:   { label: 'Stopped',      variant: 'secondary',    pulse: false },
+}
+
+const PULSE_COLOR: Partial<Record<DeploymentStatus, string>> = {
+  building:  'bg-amber-400',
+  deploying: 'bg-blue-400',
 }
 
 export function StatusBadge({ status }: { status: DeploymentStatus }) {
-  const { label, color, pulse } = STATUS_CONFIG[status]
+  const { label, variant, pulse } = STATUS_CONFIG[status]
 
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '2px 10px',
-      borderRadius: '999px',
-      fontSize: '0.75rem',
-      fontWeight: 600,
-      background: `${color}22`,
-      color,
-      border: `1px solid ${color}44`,
-    }}>
-      <span style={{
-        width: 7,
-        height: 7,
-        borderRadius: '50%',
-        background: color,
-        animation: pulse ? 'pulse 1.5s infinite' : 'none',
-      }} />
+    <Badge variant={variant} className="gap-1.5">
+      {pulse && (
+        <span className={`size-1.5 rounded-full animate-pulse ${PULSE_COLOR[status] ?? 'bg-current'}`} />
+      )}
+      {status === 'running' && (
+        <span className="size-1.5 rounded-full bg-emerald-400" />
+      )}
       {label}
-    </span>
+    </Badge>
   )
 }

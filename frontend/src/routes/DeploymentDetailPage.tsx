@@ -4,15 +4,15 @@ import { getDeployment, stopDeployment } from '../api/deployments'
 import { useDeploymentLogs } from '../hooks/useDeploymentLogs'
 import { StatusBadge } from '../components/StatusBadge'
 import { LogViewer } from '../components/LogViewer'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 
 export function DeploymentDetailPage() {
-  // useParams() returns { id: string } — typed by the route definition
   const { id } = useParams({ from: '/deployments/$id' })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Poll deployment status every 2s, stop when in a terminal state
-  // See docs/07-tanstack-query.md for refetchInterval
   const { data: deployment } = useQuery({
     queryKey: ['deployment', id],
     queryFn: () => getDeployment(id),
@@ -23,8 +23,6 @@ export function DeploymentDetailPage() {
     },
   })
 
-  // SSE hook — streams live build logs from the backend
-  // See docs/05-sse.md for how this works
   const { logs } = useDeploymentLogs(id)
 
   const stop = useMutation({
@@ -35,110 +33,96 @@ export function DeploymentDetailPage() {
     },
   })
 
-  if (!deployment) return <p style={{ color: '#8b949e' }}>Loading...</p>
+  if (!deployment) {
+    return <div className="h-48 rounded-lg bg-muted animate-pulse" />
+  }
+
+  const repoName = deployment.gitUrl.replace('https://github.com/', '').replace(/\.git$/, '')
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="flex items-start justify-between gap-4">
         <div>
           <button
             onClick={() => navigate({ to: '/' })}
-            style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', fontSize: '0.875rem', padding: 0, marginBottom: 8 }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors mb-2 flex items-center gap-1"
           >
-            ← All Deployments
+            ← All deployments
           </button>
-          <h1 style={{ fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>
-            {deployment.gitUrl.replace('https://github.com/', '')}
-          </h1>
-          <p style={{ color: '#8b949e', fontSize: '0.8rem', margin: '4px 0 0' }}>
-            ID: {deployment.id}
-          </p>
+          <h1 className="font-semibold text-lg">{repoName}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">ID: {deployment.id}</p>
         </div>
-        <StatusBadge status={deployment.status} />
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={deployment.status} />
+          {deployment.status === 'running' && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => stop.mutate()}
+              disabled={stop.isPending}
+            >
+              {stop.isPending ? 'Stopping...' : 'Stop'}
+            </Button>
+          )}
+        </div>
       </div>
+
+      <Separator />
 
       {/* Live URL */}
       {deployment.url && (
-        <div style={{
-          background: '#161b22',
-          border: '1px solid #238636',
-          borderRadius: 8,
-          padding: '12px 16px',
-          marginBottom: 24,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <span style={{ fontSize: '0.875rem', color: '#8b949e' }}>Live URL</span>
-          <a href={deployment.url} target="_blank" rel="noreferrer" style={{ color: '#58a6ff', fontSize: '0.875rem' }}>
-            {deployment.url}
-          </a>
-        </div>
+        <Card className="border-emerald-800/50 bg-emerald-950/20">
+          <CardContent className="flex items-center justify-between py-3 px-4">
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Live URL</span>
+            <a
+              href={deployment.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-emerald-400 hover:underline"
+            >
+              {deployment.url}
+            </a>
+          </CardContent>
+        </Card>
       )}
 
       {/* Error */}
       {deployment.error && (
-        <div style={{
-          background: '#ff000011',
-          border: '1px solid #ef4444',
-          borderRadius: 8,
-          padding: '12px 16px',
-          marginBottom: 24,
-          color: '#ef4444',
-          fontSize: '0.875rem',
-        }}>
-          {deployment.error}
-        </div>
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardContent className="py-3 px-4">
+            <p className="text-sm text-destructive">{deployment.error}</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Build Logs */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: '0.9rem', color: '#8b949e', marginBottom: 8, fontWeight: 500 }}>Build Logs</h2>
-        {/* LogViewer renders lines streamed in real time via SSE */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Build Logs</h2>
         <LogViewer logs={logs.length > 0 ? logs : deployment.logs} />
       </div>
 
       {/* Details */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 16,
-        marginBottom: 24,
-      }}>
-        <Detail label="Created" value={new Date(deployment.createdAt).toLocaleString()} />
-        <Detail label="Updated" value={new Date(deployment.updatedAt).toLocaleString()} />
-        <Detail label="Git URL" value={deployment.gitUrl} />
-        {deployment.port && <Detail label="Container Port" value={String(deployment.port)} />}
-      </div>
-
-      {/* Stop button — only shown when running */}
-      {deployment.status === 'running' && (
-        <button
-          onClick={() => stop.mutate()}
-          disabled={stop.isPending}
-          style={{
-            background: 'transparent',
-            border: '1px solid #ef4444',
-            color: '#ef4444',
-            borderRadius: 6,
-            padding: '6px 16px',
-            cursor: 'pointer',
-            fontSize: '0.875rem',
-          }}
-        >
-          {stop.isPending ? 'Stopping...' : 'Stop Deployment'}
-        </button>
-      )}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Details</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+          <Detail label="Created" value={new Date(deployment.createdAt).toLocaleString()} />
+          <Detail label="Updated" value={new Date(deployment.updatedAt).toLocaleString()} />
+          <Detail label="Git URL" value={deployment.gitUrl} />
+          {deployment.port && <Detail label="Port" value={String(deployment.port)} />}
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: '#161b22', border: '1px solid #21262d', borderRadius: 6, padding: '10px 14px' }}>
-      <div style={{ fontSize: '0.75rem', color: '#8b949e', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>{value}</div>
+    <div>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm break-all">{value}</p>
     </div>
   )
 }

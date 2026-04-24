@@ -7,6 +7,13 @@ services:
     networks:
       - app-net
 
+  buildkit:
+    image: moby/buildkit
+    privileged: true
+    command: --addr tcp://0.0.0.0:1234
+    networks:
+      - app-net
+
   backend:
     build:
       context: ./backend
@@ -16,6 +23,7 @@ services:
       - NODE_ENV=development
       - PORT=3001
       - CADDY_ADMIN_URL=http://proxy:2019
+      - BUILDKIT_HOST=tcp://buildkit:1234
     volumes:
       # Mount Docker socket so backend can spawn user app containers
       # See docs/01-docker.md for why this works
@@ -24,6 +32,7 @@ services:
       - app-net
     depends_on:
       - proxy
+      - buildkit
 
   proxy:
     image: caddy:2-alpine

@@ -2,11 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { listDeployments } from '../api/deployments'
 import { StatusBadge } from '../components/StatusBadge'
+import { Button } from '@/components/ui/button'
 import type { Deployment } from '../types'
 
-// useQuery fetches + caches the deployments list.
-// refetchInterval polls every 3s so status updates appear automatically.
-// See docs/07-tanstack-query.md for full explanation.
 export function DeploymentsPage() {
   const { data: deployments = [], isLoading } = useQuery({
     queryKey: ['deployments'],
@@ -14,34 +12,39 @@ export function DeploymentsPage() {
     refetchInterval: 3000,
   })
 
-  if (isLoading) return <p style={{ color: '#8b949e' }}>Loading...</p>
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   if (deployments.length === 0) {
     return (
-      <div style={{ textAlign: 'center', marginTop: 80, color: '#8b949e' }}>
-        <p style={{ fontSize: '1.1rem' }}>No deployments yet.</p>
-        <Link to="/new" style={{ color: '#58a6ff' }}>Create your first deployment →</Link>
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="text-4xl">🚀</div>
+        <div>
+          <p className="font-medium">No deployments yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Deploy a Git repo to get started</p>
+        </div>
+        <Button asChild>
+          <Link to="/new">Create your first deployment</Link>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Deployments</h1>
-        <Link to="/new" style={{
-          background: '#238636',
-          color: '#fff',
-          padding: '6px 16px',
-          borderRadius: 6,
-          textDecoration: 'none',
-          fontSize: '0.875rem',
-        }}>
-          New
-        </Link>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Deployments</h1>
+        <span className="text-sm text-muted-foreground">{deployments.length} total</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="space-y-2">
         {deployments.map((d: Deployment) => (
           <DeploymentRow key={d.id} deployment={d} />
         ))}
@@ -51,40 +54,24 @@ export function DeploymentsPage() {
 }
 
 function DeploymentRow({ deployment: d }: { deployment: Deployment }) {
+  const repoName = d.gitUrl.replace('https://github.com/', '').replace(/\.git$/, '')
+
   return (
-    <Link
-      to="/deployments/$id"
-      params={{ id: d.id }}
-      style={{ textDecoration: 'none', color: 'inherit' }}
-    >
-      <div style={{
-        border: '1px solid #21262d',
-        borderRadius: 8,
-        padding: '14px 18px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-      }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = '#388bfd')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = '#21262d')}
-      >
-        <div>
-          <div style={{ fontWeight: 500, fontSize: '0.9rem', marginBottom: 4 }}>
-            {d.gitUrl.replace('https://github.com/', '')}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
+    <Link to="/deployments/$id" params={{ id: d.id }} className="block">
+      <div className="group flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/50 hover:bg-accent/5 transition-colors">
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate">{repoName}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             {d.id} · {new Date(d.createdAt).toLocaleString()}
-          </div>
+          </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="flex items-center gap-3 shrink-0 ml-4">
           {d.url && (
             <a
               href={d.url}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: '0.75rem', color: '#58a6ff' }}
+              className="text-xs text-primary hover:underline"
               onClick={e => e.stopPropagation()}
             >
               {d.url}

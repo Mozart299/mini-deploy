@@ -1,26 +1,32 @@
-import { Outlet, Link } from '@tanstack/react-router'
+import { Outlet, Link, useRouterState } from '@tanstack/react-router'
+import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 
-// RootLayout wraps every page. <Outlet /> renders the active child route.
-// See docs/06-tanstack-router.md for how Outlet works.
 export function RootLayout() {
+  const { location } = useRouterState()
+  const isNew = location.pathname === '/new'
+
   return (
-    <div style={{ minHeight: '100vh', background: '#0d1117', color: '#e6edf3', fontFamily: 'system-ui, sans-serif' }}>
-      <nav style={{
-        borderBottom: '1px solid #21262d',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 24,
-        height: 56,
-      }}>
-        <Link to="/" style={{ fontWeight: 700, fontSize: '1rem', color: '#e6edf3', textDecoration: 'none' }}>
-          mini-deploy
-        </Link>
-        <Link to="/new" style={{ fontSize: '0.875rem', color: '#8b949e', textDecoration: 'none' }}>
-          + New Deployment
-        </Link>
-      </nav>
-      <main style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
+        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <Link to="/" className="font-semibold text-sm tracking-tight hover:text-foreground/80 transition-colors">
+              mini-deploy
+            </Link>
+            <Separator orientation="vertical" className="h-4" />
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Deployments
+            </Link>
+          </div>
+          {!isNew && (
+            <Button asChild size="sm">
+              <Link to="/new">New deployment</Link>
+            </Button>
+          )}
+        </div>
+      </header>
+      <main className="max-w-4xl mx-auto px-6 py-8">
         <Outlet />
       </main>
     </div>
