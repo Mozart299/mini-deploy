@@ -2,8 +2,8 @@ import express from 'express'
 import cors from 'cors'
 import { randomUUID } from 'crypto'
 import { Deployment } from './types'
-import { getDeployment, listDeployments, saveDeployment, transition } from './store'
-import { buildEmitters, runPipeline, stopDeploymentContainer } from './pipeline'
+import { getDeployment, listDeployments, saveDeployment, transition, deleteDeployment } from './store'
+import { buildEmitters, runPipeline, stopDeploymentContainer, cancelPipeline } from './pipeline'
 
 const app = express()
 app.use(cors())
@@ -53,15 +53,40 @@ app.post('/deployments', async (req, res) => {
 })
 
 // --- DELETE /deployments/:id ---
-// Stops a running deployment and removes its container + Caddy route
+// Cancels an in-progress pipeline or stops a running deployment
 app.delete('/deployments/:id', async (req, res) => {
   try {
     const deployment = getDeployment(req.params.id)
-    await stopDeploymentContainer(deployment)
+    const inProgress = ['pending', 'building', 'deploying'].includes(deployment.status)
+
+    if (inProgress) {
+      cancelPipeline(req.params.id)
+    } else {
+      await stopDeploymentContainer(deployment)
+    }
+
     const updated = transition(req.params.id, 'stopped')
     res.json(updated)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to stop deployment'
+    res.status(500).json({ error: message })
+  }
+})
+
+// --- DELETE /deployments/:id/purge ---
+// Permanently removes a deployment from the store — only allowed for terminal states
+app.delete('/deployments/:id/purge', (req, res) => {
+  try {
+    const deployment = getDeployment(req.params.id)
+    const terminal = ['failed', 'stopped'].includes(deployment.status)
+    if (!terminal) {
+      res.status(409).json({ error: 'Cannot delete an active deployment. Stop it first.' })
+      return
+    }
+    deleteDeployment(req.params.id)
+    res.status(204).end()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to delete deployment'
     res.status(500).json({ error: message })
   }
 })

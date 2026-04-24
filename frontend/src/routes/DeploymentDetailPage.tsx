@@ -1,14 +1,17 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { getDeployment, stopDeployment } from '../api/deployments'
+import { getDeployment, stopDeployment, purgeDeployment } from '../api/deployments'
 import { useDeploymentLogs } from '../hooks/useDeploymentLogs'
 import { StatusBadge } from '../components/StatusBadge'
 import { LogViewer } from '../components/LogViewer'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export function DeploymentDetailPage() {
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const { id } = useParams({ from: '/deployments/$id' })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -30,6 +33,14 @@ export function DeploymentDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deployment', id] })
       queryClient.invalidateQueries({ queryKey: ['deployments'] })
+    },
+  })
+
+  const purge = useMutation({
+    mutationFn: () => purgeDeployment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deployments'] })
+      navigate({ to: '/' })
     },
   })
 
@@ -55,14 +66,19 @@ export function DeploymentDetailPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={deployment.status} />
+          {['pending', 'building', 'deploying'].includes(deployment.status) && (
+            <Button variant="outline" size="sm" onClick={() => stop.mutate()} disabled={stop.isPending}>
+              {stop.isPending ? 'Cancelling...' : 'Cancel'}
+            </Button>
+          )}
           {deployment.status === 'running' && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => stop.mutate()}
-              disabled={stop.isPending}
-            >
+            <Button variant="destructive" size="sm" onClick={() => stop.mutate()} disabled={stop.isPending}>
               {stop.isPending ? 'Stopping...' : 'Stop'}
+            </Button>
+          )}
+          {['failed', 'stopped'].includes(deployment.status) && (
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              Delete
             </Button>
           )}
         </div>
@@ -96,6 +112,13 @@ export function DeploymentDetailPage() {
         </Card>
       )}
 
+      <DeleteDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => purge.mutate()}
+        pending={purge.isPending}
+      />
+
       {/* Build Logs */}
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Build Logs</h2>
@@ -115,6 +138,27 @@ export function DeploymentDetailPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function DeleteDialog({ open, onClose, onConfirm, pending }: { open: boolean; onClose: () => void; onConfirm: () => void; pending: boolean }) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete deployment?</DialogTitle>
+          <DialogDescription>
+            This permanently removes the deployment record. It cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
+            {pending ? 'Deleting...' : 'Yes, delete it'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

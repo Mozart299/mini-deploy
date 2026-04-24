@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import { existsSync, mkdirSync, rmSync } from 'fs'
 import path from 'path'
@@ -11,6 +11,9 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 // Active build emitters — deployment ID → EventEmitter
 // SSE endpoints subscribe to these to stream logs to the browser
 export const buildEmitters = new Map<string, EventEmitter>()
+
+// Active child processes — allows in-progress pipelines to be cancelled
+const activeProcesses = new Map<string, ChildProcess>()
 
 const BUILD_DIR = '/tmp/mini-deploy-builds'
 
@@ -31,13 +34,13 @@ export async function runPipeline(deployment: Deployment): Promise<void> {
     if (!existsSync(BUILD_DIR)) mkdirSync(BUILD_DIR, { recursive: true })
 
     log(`Cloning ${gitUrl}...`)
-    await runCommand('git', ['clone', '--depth=1', gitUrl, sourceDir], log)
+    await runCommand(id, 'git', ['clone', '--depth=1', gitUrl, sourceDir], log)
     log('Clone complete.')
 
     // --- Phase 2: Build image with Railpack ---
     const imageName = `mini-deploy-${id}`
     log(`Building image with Railpack...`)
-    await runCommand('railpack', ['build', '--name', imageName, sourceDir], log)
+    await runCommand(id, 'railpack', ['build', '--name', imageName, sourceDir], log)
     log(`Image ${imageName} built successfully.`)
 
     // --- Phase 3: Run container ---
@@ -57,21 +60,35 @@ export async function runPipeline(deployment: Deployment): Promise<void> {
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    log(`Pipeline failed: ${message}`)
-    transition(id, 'failed', { error: message })
+    // Don't overwrite a cancelled (stopped) deployment with failed
+    const { getDeployment } = await import('./store')
+    const current = getDeployment(id)
+    if (current.status !== 'stopped') {
+      log(`Pipeline failed: ${message}`)
+      transition(id, 'failed', { error: message })
+    }
   } finally {
+    activeProcesses.delete(id)
     emitter.emit('done')
     buildEmitters.delete(id)
-    // Clean up source files after build
     const sourceDir = path.join(BUILD_DIR, id)
     if (existsSync(sourceDir)) rmSync(sourceDir, { recursive: true, force: true })
   }
 }
 
+export function cancelPipeline(id: string): void {
+  const proc = activeProcesses.get(id)
+  if (proc) {
+    proc.kill('SIGTERM')
+    activeProcesses.delete(id)
+  }
+}
+
 // Runs a CLI command, streaming each line of output to the log callback
-function runCommand(cmd: string, args: string[], onLog: (line: string) => void): Promise<void> {
+function runCommand(id: string, cmd: string, args: string[], onLog: (line: string) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args)
+    activeProcesses.set(id, proc)
 
     proc.stdout.on('data', (chunk: Buffer) => {
       chunk.toString().split('\n').filter(Boolean).forEach(onLog)
@@ -81,8 +98,10 @@ function runCommand(cmd: string, args: string[], onLog: (line: string) => void):
       chunk.toString().split('\n').filter(Boolean).forEach(onLog)
     })
 
-    proc.on('close', (code) => {
-      if (code === 0) resolve()
+    proc.on('close', (code, signal) => {
+      activeProcesses.delete(id)
+      if (signal) reject(new Error(`${cmd} killed with signal ${signal}`))
+      else if (code === 0) resolve()
       else reject(new Error(`${cmd} exited with code ${code}`))
     })
 

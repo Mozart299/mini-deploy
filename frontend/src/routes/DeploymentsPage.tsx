@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { listDeployments } from '../api/deployments'
 import { StatusBadge } from '../components/StatusBadge'
-import { Button } from '@/components/ui/button'
 import type { Deployment } from '../types'
 
 export function DeploymentsPage() {
@@ -30,9 +29,9 @@ export function DeploymentsPage() {
           <p className="font-medium">No deployments yet</p>
           <p className="text-sm text-muted-foreground mt-1">Deploy a Git repo to get started</p>
         </div>
-        <Button asChild>
-          <Link to="/new">Create your first deployment</Link>
-        </Button>
+        <Link to="/new" className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 text-sm font-medium transition-colors">
+          Create your first deployment
+        </Link>
       </div>
     )
   }

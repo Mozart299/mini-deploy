@@ -1,6 +1,5 @@
 import { Outlet, Link, useRouterState } from '@tanstack/react-router'
 import { Separator } from '@/components/ui/separator'
-import { Button } from '@/components/ui/button'
 
 export function RootLayout() {
   const { location } = useRouterState()
@@ -20,9 +19,9 @@ export function RootLayout() {
             </Link>
           </div>
           {!isNew && (
-            <Button asChild size="sm">
-              <Link to="/new">New deployment</Link>
-            </Button>
+            <Link to="/new" className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 text-sm font-medium transition-colors">
+              New deployment
+            </Link>
           )}
         </div>
       </header>

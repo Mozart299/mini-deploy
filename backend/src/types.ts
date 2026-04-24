@@ -20,9 +20,9 @@ export interface Deployment {
 
 // Valid state transitions — prevents nonsensical jumps
 export const VALID_TRANSITIONS: Record<DeploymentStatus, DeploymentStatus[]> = {
-  pending:   ['building', 'failed'],
-  building:  ['deploying', 'failed'],
-  deploying: ['running', 'failed'],
+  pending:   ['building', 'failed', 'stopped'],
+  building:  ['deploying', 'failed', 'stopped'],
+  deploying: ['running', 'failed', 'stopped'],
   running:   ['stopped', 'failed'],
   failed:    [],
   stopped:   [],

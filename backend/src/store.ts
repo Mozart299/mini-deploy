@@ -19,6 +19,11 @@ export function saveDeployment(deployment: Deployment): void {
   deployments.set(deployment.id, deployment)
 }
 
+export function deleteDeployment(id: string): void {
+  if (!deployments.has(id)) throw new Error(`Deployment ${id} not found`)
+  deployments.delete(id)
+}
+
 export function appendLog(id: string, line: string): void {
   const d = getDeployment(id)
   deployments.set(id, { ...d, logs: [...d.logs, line], updatedAt: new Date() })

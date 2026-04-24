@@ -29,3 +29,11 @@ export async function stopDeployment(id: string): Promise<Deployment> {
   if (!res.ok) throw new Error('Failed to stop deployment')
   return res.json()
 }
+
+export async function purgeDeployment(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/deployments/${id}/purge`, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to delete deployment')
+  }
+}
